@@ -167,8 +167,6 @@
                         org.apache.tomcat.**,
                         javax.servlet.**
                     </excludes>
-                    <!-- 启用Spring Boot模式 -->
-
                     <!--需要加密的配置文件，一般是classes目录下的yml或properties文件(可为空,多个用","分割)-->
                     <cfgfiles>*.properties</cfgfiles>
                     <!--外部依赖的jar目录，例如/tomcat/lib(可为空,多个用","分割)-->
