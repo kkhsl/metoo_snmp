@@ -3,7 +3,9 @@ package com.metoo.utils;
 import com.google.gson.GsonBuilder;
 import org.snmp4j.*;
 import org.snmp4j.event.ResponseEvent;
+import org.snmp4j.mp.MPv3;
 import org.snmp4j.mp.SnmpConstants;
+import org.snmp4j.security.*;
 import org.snmp4j.smi.*;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
 import com.google.gson.Gson;
@@ -11,11 +13,18 @@ import java.io.IOException;
 import java.util.*;
 
 public class SnmpManager {
+
     private Snmp snmp;
     private final String community;
     private final String host;
     private final int port;
     private final int version;
+    private final String securityName;
+    private final int securityLevel;
+    private final String authProtocol;
+    private final String authPassword;
+    private final String privProtocol;
+    private final String privPassword;
 
     public static class Result {
         public int code;
@@ -29,35 +38,172 @@ public class SnmpManager {
         }
     }
 
+    // 构造函数重载
     public SnmpManager(String host, String community) throws IOException {
+        this(host, SnmpConstants.version2c, community, null,
+                SecurityLevel.NOAUTH_NOPRIV, null, null, null, null);
+    }
+
+    public SnmpManager(String host, String securityName, int securityLevel,
+                       String authProtocol, String authPassword,
+                       String privProtocol, String privPassword) throws IOException {
+        this(host, SnmpConstants.version3, null, securityName,
+                securityLevel, authProtocol, authPassword, privProtocol, privPassword);
+    }
+
+    private SnmpManager(String host, int version, String community, String securityName,
+                        int securityLevel, String authProtocol, String authPassword,
+                        String privProtocol, String privPassword) throws IOException {
+        String privPassword1;
+        String privProtocol1;
+        String authPassword1;
+        String authProtocol1;
         this.host = host;
-        this.community = community;
         this.port = 161;
-        this.version = SnmpConstants.version2c;
+        this.version = version;
+        this.community = community;
+        this.securityName = securityName;
+        this.securityLevel = securityLevel;
+        authProtocol1 = authProtocol;
+        authPassword1 = authPassword;
+        privProtocol1 = privProtocol;
+        privPassword1 = privPassword;
+
+        // 根据安全级别设置参数
+        if (version == SnmpConstants.version3) {
+            if (securityLevel == SecurityLevel.NOAUTH_NOPRIV) {
+                // 不需要认证和隐私
+                authProtocol1 = null;
+                authPassword1 = null;
+                privProtocol1 = null;
+                privPassword1 = null;
+            } else if (securityLevel == SecurityLevel.AUTH_NOPRIV) {
+                // 需要认证但不需要隐私
+                if (authProtocol == null || authPassword == null) {
+                    throw new IllegalArgumentException("Auth parameters cannot be null for authNoPriv");
+                }
+            } else if (securityLevel == SecurityLevel.AUTH_PRIV) {
+                // 需要认证和隐私
+                if (authProtocol == null || authPassword == null || privProtocol == null || privPassword == null) {
+                    throw new IllegalArgumentException("All security parameters must be provided for authPriv");
+                }
+            }
+        }
+
+        this.privPassword = privPassword1;
+        this.privProtocol = privProtocol1;
+        this.authPassword = authPassword1;
+        this.authProtocol = authProtocol1;
         initialize();
     }
 
     private void initialize() throws IOException {
         TransportMapping transport = new DefaultUdpTransportMapping();
         snmp = new Snmp(transport);
+
+        if (version == SnmpConstants.version3) {
+            USM usm = new USM(SecurityProtocols.getInstance(),
+                    new OctetString(MPv3.createLocalEngineID()), 0);
+            SecurityModels.getInstance().addSecurityModel(usm);
+
+            OID authOID = getAuthOID(authProtocol);
+            OID privOID = getPrivOID(privProtocol);
+
+            // 根据安全级别设置用户
+            if (securityLevel == SecurityLevel.NOAUTH_NOPRIV) {
+                // 不需要认证和隐私
+                UsmUser user = new UsmUser(
+                        new OctetString(securityName),
+                        null, // authOID 为 null
+                        null, // authPassword 为 null
+                        null, // privOID 为 null
+                        null  // privPassword 为 null
+                );
+                snmp.getUSM().addUser(new OctetString(securityName), user);
+            } else if (securityLevel == SecurityLevel.AUTH_NOPRIV) {
+                // 需要认证但不需要隐私
+                if (authOID == null) {
+                    throw new IllegalArgumentException("AuthOID cannot be null for auth protocol");
+                }
+                UsmUser user = new UsmUser(
+                        new OctetString(securityName),
+                        authOID,
+                        new OctetString(authPassword != null ? authPassword : ""),
+                        null, // privOID 为 null
+                        null  // privPassword 为 null
+                );
+                snmp.getUSM().addUser(new OctetString(securityName), user);
+            } else if (securityLevel == SecurityLevel.AUTH_PRIV) {
+                // 需要认证和隐私
+                if (authOID == null || privOID == null) {
+                    throw new IllegalArgumentException("AuthOID and PrivOID cannot be null for authPriv");
+                }
+                UsmUser user = new UsmUser(
+                        new OctetString(securityName),
+                        authOID,
+                        new OctetString(authPassword != null ? authPassword : ""),
+                        privOID,
+                        new OctetString(privPassword != null ? privPassword : "")
+                );
+                snmp.getUSM().addUser(new OctetString(securityName), user);
+            }
+        }
+
         transport.listen();
     }
 
+    private OID getAuthOID(String authProtocol) {
+        if (authProtocol == null) return null;
+        switch (authProtocol.toUpperCase()) {
+            case "SHA": return AuthSHA.ID;
+            case "MD5": return AuthMD5.ID;
+            default: throw new IllegalArgumentException("Unsupported auth protocol");
+        }
+    }
+
+    private OID getPrivOID(String privProtocol) {
+        if (privProtocol == null) return null;
+        switch (privProtocol.toUpperCase()) {
+            case "DES": return PrivDES.ID;
+            case "AES": return PrivAES128.ID;
+            default: throw new IllegalArgumentException("Unsupported priv protocol");
+        }
+    }
+
     private Target createTarget() {
-        CommunityTarget target = new CommunityTarget();
-        target.setAddress(GenericAddress.parse("udp:" + host + "/" + port));
-        target.setCommunity(new OctetString(community));
-        target.setVersion(version);
-        target.setTimeout(3000);
-        target.setRetries(1);
+        Target target;
+        if (version == SnmpConstants.version3) {
+            UserTarget userTarget = new UserTarget();
+            userTarget.setAddress(GenericAddress.parse("udp:" + host + "/" + port));
+            userTarget.setSecurityLevel(securityLevel);
+            userTarget.setSecurityName(new OctetString(securityName));
+            userTarget.setTimeout(3000);
+            userTarget.setRetries(1);
+            target = userTarget;
+        } else {
+            CommunityTarget communityTarget = new CommunityTarget();
+            communityTarget.setAddress(GenericAddress.parse("udp:" + host + "/" + port));
+            communityTarget.setCommunity(new OctetString(community));
+            communityTarget.setVersion(version);
+            communityTarget.setTimeout(3000);
+            communityTarget.setRetries(1);
+            target = communityTarget;
+        }
+
         return target;
     }
 
     private ResponseEvent snmpGet(OID oid) throws IOException {
-        PDU pdu = new PDU();
+        PDU pdu; // 声明 PDU 变量
+        if (version == SnmpConstants.version3) {
+            pdu = new ScopedPDU(); // 使用 ScopedPDU
+        } else {
+            pdu = new PDU(); // 使用普通的 PDU
+        }
         pdu.add(new VariableBinding(oid));
         pdu.setType(PDU.GET);
-        return snmp.send(pdu, createTarget());
+        ResponseEvent responseEvent = snmp.send(pdu, createTarget());
+        return responseEvent;
     }
 
 
@@ -308,7 +454,13 @@ public class SnmpManager {
         List<VariableBinding> results = new ArrayList<>();
         OID currentOid = baseOid;
         while (true) {
-            PDU pdu = new PDU();
+            PDU pdu; // 声明 PDU 变量
+            if (version == SnmpConstants.version3) {
+                pdu = new ScopedPDU(); // 使用 ScopedPDU
+            } else {
+                pdu = new PDU(); // 使用普通的 PDU
+            }
+
             pdu.add(new VariableBinding(currentOid));
             ResponseEvent event = snmp.getNext(pdu, createTarget());
             PDU response = event.getResponse();
@@ -381,45 +533,162 @@ public class SnmpManager {
     public static void main(String[] args) {
         try {
             // 初始化SNMP管理器（目标设备IP和社区字符串）
-            SnmpManager manager = new SnmpManager("192.168.6.1", "public@123");
+            //
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
             // --------------------------
             // 测试1. 获取设备主机名
+            //v2c
             // OID: 1.3.6.1.2.1.1.5.0 (sysName)
-            // --------------------------
-            Result hostnameResult = manager.getHostname("","1.3.6.1.2.1.1.5.0");
+            SnmpManager manager11 = new SnmpManager("192.168.6.1", "public@123");
+            Result hostnameResult = manager11.getHostname("", "1.3.6.1.2.1.1.5.0");
             System.out.println("\n=== 测试1. 主机名 ===");
             System.out.println(gson.toJson(hostnameResult));
 
+            // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
+            SnmpManager manager =  new SnmpManager(
+                    "192.168.6.1",
+                    "user_test",
+                    SecurityLevel.NOAUTH_NOPRIV,
+                    null, null, null, null
+            );
+            Result result = manager.getHostname("", "1.3.6.1.2.1.1.5.0");
+            System.out.println("=== noAuthNoPriv 测试结果 ===");
+            System.out.println(gson.toJson(result));
+            // --------------------------
+
+            SnmpManager manager1 = new SnmpManager(
+                    "192.168.6.1",
+                    "user-test2",
+                    SecurityLevel.AUTH_NOPRIV,
+                    "MD5", "metoo8974500",
+                    null, null
+            );
+            Result result1 = manager1.getHostname("", "1.3.6.1.2.1.1.5.0");
+            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
+            System.out.println(gson.toJson(result1));
+
+            // --------------------------
+
+            SnmpManager manager2 = new SnmpManager(
+                    "192.168.6.1",
+                    "user_test3",
+                    SecurityLevel.AUTH_PRIV,
+                    "MD5", "metoo8974500",
+                    "DES", "Metoo89745000"
+            );
+            Result result2 = manager2.getHostname("", "1.3.6.1.2.1.1.5.0");
+            System.out.println("=== AUTH_PRIV 测试结果 ===");
+            System.out.println(gson.toJson(result2));
 
             // 测试获取IPv4端口映射
-            Result result = manager.getIPv4PortMap("","1.3.6.1.2.1.4.20.1.2");
-            System.out.println("=== IPv4地址-端口映射 ===");
-            System.out.println(gson.toJson(result));
+            /*SnmpManager manager01 = new SnmpManager("192.168.6.1", "public@123");
+            Result result01 = manager01.getIPv4PortMap("","1.3.6.1.2.1.4.20.1.2");
+            System.out.println("=== IPv4地址-全部端口映射 ===");
+            System.out.println(gson.toJson(result01));*/
 
 
             // --------------------------
             // 测试2. 获取IPv4端口信息
+            //v2c
             // OID: 1.3.6.1.2.1.4.20.1.2 (ipAddressIfIndex)
             // 测试IP: 192.168.4.2
             // --------------------------
-            Result ipv4PortResult = manager.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
+            SnmpManager manager12 = new SnmpManager("192.168.6.1", "public@123");
+            Result ipv4PortResult = manager12.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
             System.out.println("\n=== 测试2. IPv4地址指定映射 ===");
             System.out.println(gson.toJson(ipv4PortResult));
 
+            // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
+            SnmpManager manager6 =  new SnmpManager(
+                    "192.168.6.1",
+                    "user_test",
+                    SecurityLevel.NOAUTH_NOPRIV,
+                    null, null, null, null
+            );
+            Result result6 = manager6.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
+            System.out.println("=== noAuthNoPriv 测试结果 ===");
+            System.out.println(gson.toJson(result6));
+            // --------------------------
+
+            SnmpManager manager7 = new SnmpManager(
+                    "192.168.6.1",
+                    "user-test2",
+                    SecurityLevel.AUTH_NOPRIV,
+                    "MD5", "metoo8974500",
+                    null, null
+            );
+            Result result7 = manager7.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
+            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
+            System.out.println(gson.toJson(result7));
+
+            // --------------------------
+
+            SnmpManager manager9 = new SnmpManager(
+                    "192.168.6.1",
+                    "user_test3",
+                    SecurityLevel.AUTH_PRIV,
+                    "MD5", "metoo8974500",
+                    "DES", "Metoo89745000"
+            );
+            Result result9 = manager9.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
+            System.out.println("=== AUTH_PRIV 测试结果 ===");
+            System.out.println(gson.toJson(result9));
+
 
             // 测试获取IPv6全部端口映射
-            Result IPv6Portresult = manager.getIPv6PortMap("","1.3.6.1.2.1.4.32.1.5");
-            System.out.println("=== IPv6地址-端口映射 ===");
-            System.out.println(gson.toJson(IPv6Portresult));
+            SnmpManager manager02 = new SnmpManager("192.168.6.1", "public@123");
+            Result IPv6Portresult02 = manager02.getIPv6PortMap("","1.3.6.1.2.1.4.32.1.5");
+            System.out.println("=== IPv6地址-全部端口映射 ===");
+            System.out.println(gson.toJson(IPv6Portresult02));
             //--------------------------
             // 测试3. 获取指定IPv6端口信息
             // OID: 1.3.6.1.2.1.4.32.1.5 (ipv6IfIndex)
             // --------------------------
-            Result ipv6PortResult = manager.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
+            SnmpManager manager16 = new SnmpManager("192.168.6.1", "public@123");
+            Result ipv6PortResult16 = manager16.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
             System.out.println("\n=== 测试3. 指定IPv6端口映射 ===");
-            System.out.println(gson.toJson(ipv6PortResult));
+            System.out.println(gson.toJson(ipv6PortResult16));
+
+            // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
+            SnmpManager manager17 =  new SnmpManager(
+                    "192.168.6.1",
+                    "user_test",
+                    SecurityLevel.NOAUTH_NOPRIV,
+                    null, null, null, null
+            );
+            Result result17 = manager17.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
+            System.out.println("=== noAuthNoPriv 测试结果 ===");
+            System.out.println(gson.toJson(result17));
+            // --------------------------
+
+            SnmpManager manager18 = new SnmpManager(
+                    "192.168.6.1",
+                    "user-test2",
+                    SecurityLevel.AUTH_NOPRIV,
+                    "MD5", "metoo8974500",
+                    null, null
+            );
+            Result result18 = manager18.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
+            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
+            System.out.println(gson.toJson(result18));
+
+            // --------------------------
+
+            SnmpManager manager19 = new SnmpManager(
+                    "192.168.6.1",
+                    "user_test3",
+                    SecurityLevel.AUTH_PRIV,
+                    "MD5", "metoo8974500",
+                    "DES", "Metoo89745000"
+            );
+            Result result19 = manager19.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
+            System.out.println("=== AUTH_PRIV 测试结果 ===");
+            System.out.println(gson.toJson(result19));
+
+
+
+
 
             // --------------------------
             // 测试4. Hillstone设备IPv6端口
@@ -431,21 +700,56 @@ public class SnmpManager {
 //            System.out.println(gson.toJson(hillstonePortResult));
 
             // --------------------------
-            // 测试5. 获取流量统计
+            // 测试5. 获取全部流量统计
             // OID: 1.3.6.1.2.1.31.1.1.1.10 (ifHCInOctets)
             // --------------------------
-            Result trafficResult = manager.getTraffic("","1.3.6.1.2.1.2.2.1.10");
+            SnmpManager manager03 = new SnmpManager("192.168.6.1", "public@123");
+            Result trafficResult03 = manager03.getTraffic("","1.3.6.1.2.1.2.2.1.10");
             System.out.println("\n=== 测试5. 全部流量统计 ===");
-            System.out.println(gson.toJson(trafficResult));
+            System.out.println(gson.toJson(trafficResult03));
 
 
-            Result trafficByOidResult = manager.getTrafficByPort("","1.3.6.1.2.1.2.2.1.10.195");
+            SnmpManager manager21 = new SnmpManager("192.168.6.1", "public@123");
+            Result trafficByOidResult = manager21.getTrafficByPort("","1.3.6.1.2.1.2.2.1.10.195");
             System.out.println("\n=== 测试5. 指定流量统计 ===");
             System.out.println(gson.toJson(trafficByOidResult));
 
-//            Result portStatusResult = manager.getPortStatus("1.3.6.1.2.1.2.2.1.8.10101");
-//            System.out.println("\n=== 测试6. 端口状态 ===");
-//            System.out.println(gson.toJson(portStatusResult));
+            // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
+            SnmpManager manager27 =  new SnmpManager(
+                    "192.168.6.1",
+                    "user_test",
+                    SecurityLevel.NOAUTH_NOPRIV,
+                    null, null, null, null
+            );
+            Result result27 = manager27.getTrafficByPort("2400:3030:aa12:1978::1", "1.3.6.1.2.1.2.2.1.10.195");
+            System.out.println("=== noAuthNoPriv 测试结果 ===");
+            System.out.println(gson.toJson(result27));
+            // --------------------------
+
+            SnmpManager manager28 = new SnmpManager(
+                    "192.168.6.1",
+                    "user-test2",
+                    SecurityLevel.AUTH_NOPRIV,
+                    "MD5", "metoo8974500",
+                    null, null
+            );
+            Result result28 = manager28.getTrafficByPort("2400:3030:aa12:1978::1", "1.3.6.1.2.1.2.2.1.10.195");
+            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
+            System.out.println(gson.toJson(result28));
+
+            // --------------------------
+
+            SnmpManager manager29 = new SnmpManager(
+                    "192.168.6.1",
+                    "user_test3",
+                    SecurityLevel.AUTH_PRIV,
+                    "MD5", "metoo8974500",
+                    "DES", "Metoo89745000"
+            );
+            Result result29 = manager29.getTrafficByPort("2400:3030:aa12:1978::1", "1.3.6.1.2.1.2.2.1.10.195");
+            System.out.println("=== AUTH_PRIV 测试结果 ===");
+            System.out.println(gson.toJson(result29));
+
 
         } catch (IOException e) {
             System.err.println("【严重错误】SNMP连接失败:");

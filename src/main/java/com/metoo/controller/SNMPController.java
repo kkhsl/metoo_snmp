@@ -57,7 +57,7 @@ public class SNMPController {
     }
 
     /**
-     * SNMP操作统一入口
+     * SNMP V2C操作统一入口
      * @param host 目标主机
      * @param community SNMP社区名
      * @param ip 目标IP（可选）
@@ -66,8 +66,8 @@ public class SNMPController {
      * @param command 操作指令
      * @return 标准化JSON响应
      */
-    @GetMapping("/operate")
-    public ResponseEntity<?> snmpOperation(
+    @GetMapping("/operateV2C")
+    public ResponseEntity<?> snmpV2COperation(
             @RequestParam String host,
             @RequestParam String community,
             @RequestParam(required = false) String ip,
@@ -109,5 +109,64 @@ public class SNMPController {
             throw new RuntimeException(e);
         }
     }
+
+    /**
+     * SNMP V3操作统一入口
+     * @param host 目标主机
+     * @param ip 目标IP（可选）
+     * @param oid 请求OID
+     * @param vendor 设备厂商
+     * @param command 操作指令
+     * @return 标准化JSON响应
+     */
+    @GetMapping("/operateV3")
+    public ResponseEntity<?> snmpOperation(
+            @RequestParam String host,
+            @RequestParam(required = false) String ip,
+            @RequestParam String oid,
+            @RequestParam String vendor,
+            @RequestParam String command,
+            @RequestParam(required = false) String securityName,
+            @RequestParam(required = false) int securityLevel,
+            @RequestParam(required = false) String authProtocol,
+            @RequestParam(required = false) String authPassword,
+            @RequestParam(required = false) String privProtocol,
+            @RequestParam(required = false) String privPassword
+    ) {
+        try {
+            // 参数校验
+            if (host == null || host.isEmpty() || oid == null || oid.isEmpty()) {
+                return ResponseEntity.badRequest().body("缺少必要参数: host或oid");
+            }
+
+            logger.info("收到SNMP请求: vendor={}, command={}, host={}", vendor, command, host);
+
+            // 获取方法名
+            String methodName = getMethodName(vendor, command);
+            if (methodName == null) {
+                logger.warn("未找到厂商[{}]指令[{}]对应方法", vendor, command);
+                return ResponseEntity.notFound().build();
+            }
+
+            // 反射调用方法
+            SnmpManager manager = new SnmpManager(host,securityName,securityLevel,authProtocol,authPassword, privProtocol,privPassword);
+            Method targetMethod = SnmpManager.class.getMethod(methodName, String.class,String.class);
+            Object result = targetMethod.invoke(manager, ip,oid);
+            // 构造响应
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/json;charset=UTF-8")
+                    .body(JSONObject.toJSONString(result));
+
+        } catch (NoSuchMethodException e) {
+            logger.error("方法不存在: {}", e.getMessage());
+            return ResponseEntity.badRequest().body("无效的操作指令配置");
+        } catch (InvocationTargetException | IllegalAccessException e) {
+            logger.error("方法调用失败: {}", e.getCause().getMessage());
+            return ResponseEntity.badRequest().body("方法调用失败");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 
 }
