@@ -47,8 +47,8 @@ public class SNMPController {
      * @param command 操作指令
      * @return 方法名，未找到返回null
      */
-    public String getMethodName(String vendor, String command) {
-        String key = String.format("%s.%s", vendor, command);
+    public String getMethodName(String type,String vendor, String command) {
+        String key = String.format("%s.%s.%s",type,vendor,command);
         String methodConfig = snmpConfig.getProperty(key);
         if (methodConfig != null) {
             return methodConfig;
@@ -68,6 +68,7 @@ public class SNMPController {
      */
     @GetMapping("/operateV2C")
     public ResponseEntity<?> snmpV2COperation(
+            @RequestParam String type,
             @RequestParam String host,
             @RequestParam String community,
             @RequestParam(required = false) String ip,
@@ -84,7 +85,7 @@ public class SNMPController {
             logger.info("收到SNMP请求: vendor={}, command={}, host={}", vendor, command, host);
 
             // 获取方法名
-            String methodName = getMethodName(vendor, command);
+            String methodName = getMethodName(type,vendor, command);
             if (methodName == null) {
                 logger.warn("未找到厂商[{}]指令[{}]对应方法", vendor, command);
                 return ResponseEntity.notFound().build();
@@ -122,6 +123,7 @@ public class SNMPController {
     @GetMapping("/operateV3")
     public ResponseEntity<?> snmpOperation(
             @RequestParam String host,
+            @RequestParam String type,
             @RequestParam(required = false) String ip,
             @RequestParam String oid,
             @RequestParam String vendor,
@@ -142,7 +144,7 @@ public class SNMPController {
             logger.info("收到SNMP请求: vendor={}, command={}, host={}", vendor, command, host);
 
             // 获取方法名
-            String methodName = getMethodName(vendor, command);
+            String methodName = getMethodName(type,vendor, command);
             if (methodName == null) {
                 logger.warn("未找到厂商[{}]指令[{}]对应方法", vendor, command);
                 return ResponseEntity.notFound().build();
