@@ -11,7 +11,7 @@
 
     <groupId>com.metoo</groupId>
     <artifactId>snmp</artifactId>
-    <version>0.0.6-SNAPSHOT</version>
+    <version>0.0.7-SNAPSHOT</version>
 
     <properties>
         <java.version>8</java.version>
@@ -70,7 +70,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
 
                 <configuration>
-                    <classifier>execute</classifier>    <!-- 为了解决依赖模块找不到此模块中的类或属性 -->
+                    <classifier>execute</classifier>
                 </configuration>
 
             </plugin>
