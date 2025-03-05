@@ -43,7 +43,7 @@ public class SNMPController {
 
     /**
      * 根据厂商和指令获取对应方法名
-     * @param vendor 设备类型
+     * @param type 设备类型
      * @param vendor 设备厂商
      * @param command 操作指令
      * @return 方法名，未找到返回null
