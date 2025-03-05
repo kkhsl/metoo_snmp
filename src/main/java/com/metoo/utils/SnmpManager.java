@@ -368,6 +368,56 @@ public class SnmpManager {
         }
     }
 
+    /**
+     *安博通
+     * @param
+     * @return
+     */
+    public Result getAbtIPv6Port(String ipv6, String oidStr) {
+        try {
+            String normalizedIPv6 = expandIPv6(ipv6);
+            List<VariableBinding> vbs = snmpWalk(new OID(oidStr));
+            // 计算基础 OID 的节点数
+            int baseOidLength = new OID(oidStr).size();
+
+            for (VariableBinding vb : vbs) {
+                String fullOid = vb.getOid().toString();
+                String key = vb.getVariable().toString();
+                String[] oidParts = fullOid.split("\\.");
+
+                if (oidParts.length > baseOidLength) {
+                    // 转换网段和匹配逻辑（保持不变）
+                    String[] last16Parts = Arrays.copyOfRange(oidParts, oidParts.length - 16, oidParts.length);
+                    String iPv6Address = convertOidToIPv6Address(last16Parts);
+                    System.out.println(iPv6Address);
+                    if (iPv6Address.toUpperCase().equalsIgnoreCase(normalizedIPv6)) {
+                        return new Result(200, key, "");
+                    }
+                }
+            }
+            return new Result(404, null, "Not found");
+        } catch (Exception e) {
+            return new Result(500, null, e.getMessage());
+        }
+    }
+
+    private String convertOidToIPv6Address(String[] oidParts) {
+        if (oidParts.length != 16) {
+            throw new IllegalArgumentException("需要16个OID节点");
+        }
+
+        // 解析前16组（每组2字节）
+        StringBuilder hex = new StringBuilder();
+        for (int i = 0; i < 16; i++) {
+            int val = Integer.parseInt(oidParts[i]);
+            hex.append(String.format("%02x", val & 0xFF));
+        }
+
+        // 格式化为IPv6地址
+        return formatIPv6(hex.toString().toUpperCase());
+    }
+
+
     // 将最后17个OID节点转换为IPv6网段
     private String convertOidToIPv6Segment(String[] oidParts) {
         if (oidParts.length != 17) {
@@ -536,119 +586,128 @@ public class SnmpManager {
             //
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-            // --------------------------
-            // 测试1. 获取设备主机名
-            //v2c
-            // OID: 1.3.6.1.2.1.1.5.0 (sysName)
-            SnmpManager manager11 = new SnmpManager("192.168.6.1", "public@123");
-            Result hostnameResult = manager11.getHostname("", "1.3.6.1.2.1.1.5.0");
-            System.out.println("\n=== 测试1. 主机名 ===");
-            System.out.println(gson.toJson(hostnameResult));
-
-            // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
-            SnmpManager manager =  new SnmpManager(
-                    "192.168.6.1",
-                    "user_test",
-                    SecurityLevel.NOAUTH_NOPRIV,
-                    null, null, null, null
-            );
-            Result result = manager.getHostname("", "1.3.6.1.2.1.1.5.0");
-            System.out.println("=== noAuthNoPriv 测试结果 ===");
-            System.out.println(gson.toJson(result));
-            // --------------------------
-
-            SnmpManager manager1 = new SnmpManager(
-                    "192.168.6.1",
-                    "user-test2",
-                    SecurityLevel.AUTH_NOPRIV,
-                    "MD5", "metoo8974500",
-                    null, null
-            );
-            Result result1 = manager1.getHostname("", "1.3.6.1.2.1.1.5.0");
-            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
-            System.out.println(gson.toJson(result1));
-
-            // --------------------------
-
-            SnmpManager manager2 = new SnmpManager(
-                    "192.168.6.1",
-                    "user_test3",
-                    SecurityLevel.AUTH_PRIV,
-                    "MD5", "metoo8974500",
-                    "DES", "Metoo89745000"
-            );
-            Result result2 = manager2.getHostname("", "1.3.6.1.2.1.1.5.0");
-            System.out.println("=== AUTH_PRIV 测试结果 ===");
-            System.out.println(gson.toJson(result2));
-
-            // 测试获取IPv4端口映射
-            /*SnmpManager manager01 = new SnmpManager("192.168.6.1", "public@123");
-            Result result01 = manager01.getIPv4PortMap("","1.3.6.1.2.1.4.20.1.2");
-            System.out.println("=== IPv4地址-全部端口映射 ===");
-            System.out.println(gson.toJson(result01));*/
-
-
-            // --------------------------
-            // 测试2. 获取IPv4端口信息
-            //v2c
-            // OID: 1.3.6.1.2.1.4.20.1.2 (ipAddressIfIndex)
-            // 测试IP: 192.168.4.2
-            // --------------------------
-            SnmpManager manager12 = new SnmpManager("192.168.6.1", "public@123");
-            Result ipv4PortResult = manager12.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
-            System.out.println("\n=== 测试2. IPv4地址指定映射 ===");
-            System.out.println(gson.toJson(ipv4PortResult));
-
-            // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
-            SnmpManager manager6 =  new SnmpManager(
-                    "192.168.6.1",
-                    "user_test",
-                    SecurityLevel.NOAUTH_NOPRIV,
-                    null, null, null, null
-            );
-            Result result6 = manager6.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
-            System.out.println("=== noAuthNoPriv 测试结果 ===");
-            System.out.println(gson.toJson(result6));
-            // --------------------------
-
-            SnmpManager manager7 = new SnmpManager(
-                    "192.168.6.1",
-                    "user-test2",
-                    SecurityLevel.AUTH_NOPRIV,
-                    "MD5", "metoo8974500",
-                    null, null
-            );
-            Result result7 = manager7.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
-            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
-            System.out.println(gson.toJson(result7));
-
-            // --------------------------
-
-            SnmpManager manager9 = new SnmpManager(
-                    "192.168.6.1",
-                    "user_test3",
-                    SecurityLevel.AUTH_PRIV,
-                    "MD5", "metoo8974500",
-                    "DES", "Metoo89745000"
-            );
-            Result result9 = manager9.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
-            System.out.println("=== AUTH_PRIV 测试结果 ===");
-            System.out.println(gson.toJson(result9));
-
-
-            // 测试获取IPv6全部端口映射
-            SnmpManager manager02 = new SnmpManager("192.168.6.1", "public@123");
-            Result IPv6Portresult02 = manager02.getIPv6PortMap("","1.3.6.1.2.1.4.32.1.5");
-            System.out.println("=== IPv6地址-全部端口映射 ===");
-            System.out.println(gson.toJson(IPv6Portresult02));
+//            // --------------------------
+//            // 测试1. 获取设备主机名
+//            //v2c
+//            // OID: 1.3.6.1.2.1.1.5.0 (sysName)
+//            SnmpManager manager11 = new SnmpManager("192.168.6.1", "public@123");
+//            Result hostnameResult = manager11.getHostname("", "1.3.6.1.2.1.1.5.0");
+//            System.out.println("\n=== 测试1. 主机名 ===");
+//            System.out.println(gson.toJson(hostnameResult));
+//
+//            // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
+//            SnmpManager manager =  new SnmpManager(
+//                    "192.168.6.1",
+//                    "user_test",
+//                    SecurityLevel.NOAUTH_NOPRIV,
+//                    null, null, null, null
+//            );
+//            Result result = manager.getHostname("", "1.3.6.1.2.1.1.5.0");
+//            System.out.println("=== noAuthNoPriv 测试结果 ===");
+//            System.out.println(gson.toJson(result));
+//            // --------------------------
+//
+//            SnmpManager manager1 = new SnmpManager(
+//                    "192.168.6.1",
+//                    "user-test2",
+//                    SecurityLevel.AUTH_NOPRIV,
+//                    "MD5", "metoo8974500",
+//                    null, null
+//            );
+//            Result result1 = manager1.getHostname("", "1.3.6.1.2.1.1.5.0");
+//            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
+//            System.out.println(gson.toJson(result1));
+//
+//            // --------------------------
+//
+//            SnmpManager manager2 = new SnmpManager(
+//                    "192.168.6.1",
+//                    "user_test3",
+//                    SecurityLevel.AUTH_PRIV,
+//                    "MD5", "metoo8974500",
+//                    "DES", "Metoo89745000"
+//            );
+//            Result result2 = manager2.getHostname("", "1.3.6.1.2.1.1.5.0");
+//            System.out.println("=== AUTH_PRIV 测试结果 ===");
+//            System.out.println(gson.toJson(result2));
+//
+//            // 测试获取IPv4端口映射
+//            /*SnmpManager manager01 = new SnmpManager("192.168.6.1", "public@123");
+//            Result result01 = manager01.getIPv4PortMap("","1.3.6.1.2.1.4.20.1.2");
+//            System.out.println("=== IPv4地址-全部端口映射 ===");
+//            System.out.println(gson.toJson(result01));*/
+//
+//
+//            // --------------------------
+//            // 测试2. 获取IPv4端口信息
+//            //v2c
+//            // OID: 1.3.6.1.2.1.4.20.1.2 (ipAddressIfIndex)
+//            // 测试IP: 192.168.4.2
+//            // --------------------------
+//            SnmpManager manager12 = new SnmpManager("192.168.6.1", "public@123");
+//            Result ipv4PortResult = manager12.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
+//            System.out.println("\n=== 测试2. IPv4地址指定映射 ===");
+//            System.out.println(gson.toJson(ipv4PortResult));
+//
+//            // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
+//            SnmpManager manager6 =  new SnmpManager(
+//                    "192.168.6.1",
+//                    "user_test",
+//                    SecurityLevel.NOAUTH_NOPRIV,
+//                    null, null, null, null
+//            );
+//            Result result6 = manager6.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
+//            System.out.println("=== noAuthNoPriv 测试结果 ===");
+//            System.out.println(gson.toJson(result6));
+//            // --------------------------
+//
+//            SnmpManager manager7 = new SnmpManager(
+//                    "192.168.6.1",
+//                    "user-test2",
+//                    SecurityLevel.AUTH_NOPRIV,
+//                    "MD5", "metoo8974500",
+//                    null, null
+//            );
+//            Result result7 = manager7.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
+//            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
+//            System.out.println(gson.toJson(result7));
+//
+//            // --------------------------
+//
+//            SnmpManager manager9 = new SnmpManager(
+//                    "192.168.6.1",
+//                    "user_test3",
+//                    SecurityLevel.AUTH_PRIV,
+//                    "MD5", "metoo8974500",
+//                    "DES", "Metoo89745000"
+//            );
+//            Result result9 = manager9.getIPv4Port("192.168.4.2", "1.3.6.1.2.1.4.20.1.2");
+//            System.out.println("=== AUTH_PRIV 测试结果 ===");
+//            System.out.println(gson.toJson(result9));
+//
+//
+//            // 测试获取IPv6全部端口映射
+//            SnmpManager manager02 = new SnmpManager("192.168.6.1", "public@123");
+//            Result IPv6Portresult02 = manager02.getIPv6PortMap("","1.3.6.1.2.1.4.32.1.5");
+//            System.out.println("=== IPv6地址-全部端口映射 ===");
+//            System.out.println(gson.toJson(IPv6Portresult02));
             //--------------------------
             // 测试3. 获取指定IPv6端口信息
             // OID: 1.3.6.1.2.1.4.32.1.5 (ipv6IfIndex)
             // --------------------------
-            SnmpManager manager16 = new SnmpManager("192.168.6.1", "public@123");
-            Result ipv6PortResult16 = manager16.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
-            System.out.println("\n=== 测试3. 指定IPv6端口映射 ===");
-            System.out.println(gson.toJson(ipv6PortResult16));
+//            SnmpManager manager16 = new SnmpManager("192.168.6.1", "public@123");
+//            Result ipv6PortResult16 = manager16.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
+//            System.out.println("\n=== 测试3. 指定IPv6端口映射 ===");
+//            System.out.println(gson.toJson(ipv6PortResult16));
+
+
+
+            SnmpManager manager89 = new SnmpManager("192.168.4.1", "read@public");
+            Result ipv6PortResult89 = manager89.getAbtIPv6Port("240E:380:2:3E6C:5A48:4944:EB29:BC10", "1.3.6.1.2.1.4.34.1.3.2");// 1.3.6.1.2.1.4.34.1.3.2
+            System.out.println("\n=== 测试abt 指定IPv6端口映射 ===");
+            System.out.println(gson.toJson(ipv6PortResult89));
+
+/*
 
             // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
             SnmpManager manager17 =  new SnmpManager(
@@ -748,7 +807,7 @@ public class SnmpManager {
             );
             Result result29 = manager29.getTrafficByPort("2400:3030:aa12:1978::1", "1.3.6.1.2.1.2.2.1.10.195");
             System.out.println("=== AUTH_PRIV 测试结果 ===");
-            System.out.println(gson.toJson(result29));
+            System.out.println(gson.toJson(result29));*/
 
 
         } catch (IOException e) {
