@@ -7,15 +7,12 @@ import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Properties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class SNMPSDK {
-    private static final Logger logger = LoggerFactory.getLogger(SNMPSDK.class);
     private final Properties snmpConfig;
 
     public SNMPSDK() throws SNMPException {
-        this("application.properties");
+        this("snmp.properties");
     }
 
     public SNMPSDK(String configPath) throws SNMPException {
@@ -33,7 +30,6 @@ public class SNMPSDK {
             }
             Properties config = new Properties();
             config.load(inputStream);
-            logger.info("Loaded {} SNMP rules", config.size());
             return config;
         } catch (IOException e) {
             throw new SNMPException("Failed to load config: " + configPath, e);

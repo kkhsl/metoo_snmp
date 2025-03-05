@@ -29,9 +29,9 @@ public class SNMPController {
             snmpConfig = new Properties();
             // 从类路径加载配置文件
             InputStream inputStream = SNMPController.class.getClassLoader()
-                    .getResourceAsStream("application.properties");
+                    .getResourceAsStream("snmp.properties");
             if (inputStream == null) {
-                throw new IOException("SNMP配置文件 application.properties 未找到");
+                throw new IOException("SNMP配置文件 snmp.properties 未找到");
             }
             snmpConfig.load(inputStream);
             logger.info("SNMP配置加载成功，共加载{}条规则", snmpConfig.size());
