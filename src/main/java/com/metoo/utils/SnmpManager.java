@@ -292,7 +292,7 @@ public class SnmpManager {
                     return new Result(200, value, "");
                 }
             }
-            return new Result(404, null, "Not found");
+            return new Result(200, null, "Not found");
         } catch (IOException e) {
             return new Result(500, null, e.getMessage());
         }
@@ -362,7 +362,7 @@ public class SnmpManager {
                     }
                 }
             }
-            return new Result(404, null, "Not found");
+            return new Result(200, null, "Not found");
         } catch (Exception e) {
             return new Result(500, null, e.getMessage());
         }
@@ -395,7 +395,7 @@ public class SnmpManager {
                     }
                 }
             }
-            return new Result(404, null, "Not found");
+            return new Result(200, null, "Not found");
         } catch (Exception e) {
             return new Result(500, null, e.getMessage());
         }
@@ -494,7 +494,7 @@ public class SnmpManager {
                     }
                 }
             }
-            return new Result(404, null, "Not found");
+            return new Result(200, null, "Not found");
         } catch (Exception e) {
             return new Result(500, null, e.getMessage());
         }
@@ -535,7 +535,7 @@ public class SnmpManager {
         try {
             List<VariableBinding> vbs = snmpWalk(new OID(oidStr));
             if (vbs.isEmpty()) {
-                return new Result(404, null, "No traffic data found");
+                return new Result(200, null, "No traffic data found");
             }
 
             Map<String, String> trafficData = new HashMap<>();
@@ -558,7 +558,7 @@ public class SnmpManager {
             String baseOidStr = oidStr.substring(0, oidStr.lastIndexOf('.')); // 去掉最后一个数字
             List<VariableBinding> vbs = snmpWalk(new OID(baseOidStr)); // 执行 SNMP 查询
             if (vbs.isEmpty()) {
-                return new Result(404, null, "No traffic data found"); // 如果没有数据，返回404
+                return new Result(200, null, "No traffic data found"); // 如果没有数据，返回null
             }
 
             // 获取传入 OID 的最后一个部分
@@ -574,7 +574,7 @@ public class SnmpManager {
                 }
             }
 
-            return new Result(404, null, "Traffic data not found for port: " + lastPart); // 如果没有找到匹配的 OID
+            return new Result(200, null, "Traffic data not found for port: " + lastPart); // 如果没有找到匹配的 OID
         } catch (IOException e) {
             return new Result(500, null, e.getMessage()); // 处理异常
         }
@@ -702,7 +702,7 @@ public class SnmpManager {
 
 
 
-            SnmpManager manager89 = new SnmpManager("192.168.4.1", "read@public");
+            SnmpManager manager89 = new SnmpManager("240e:380:2:42ba:5a48:496c:5a29:bc10", "read@public");
             Result ipv6PortResult89 = manager89.getAbtIPv6Port("240E:380:2:3E6C:5A48:4944:EB29:BC10", "1.3.6.1.2.1.4.34.1.3.2");// 1.3.6.1.2.1.4.34.1.3.2
             System.out.println("\n=== 测试abt 指定IPv6端口映射 ===");
             System.out.println(gson.toJson(ipv6PortResult89));
