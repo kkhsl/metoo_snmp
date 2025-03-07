@@ -637,23 +637,41 @@ public class SnmpManager {
     }
 
     public Result getPortInfo(String Str, String oidStr) {
-        Map<String, String> portNameMap = getPortNameMap(Str, "1.3.6.1.2.1.2.2.1.2");
-        Map<String, String> portStatusMap = getPortStatusMap(Str, "1.3.6.1.2.1.2.2.1.8");
+        Map<String, String> portNameMap;
+        Map<String, String> portStatusMap;
         List<Map<String, String>> mergedList = new ArrayList<>();
 
-        for (String index : portNameMap.keySet()) {
-            Map<String, String> portInfo = new LinkedHashMap<>();
-            String portName = portNameMap.get(index);
-            String portStatus = portStatusMap.get(index);
+        try {
+            // 获取端口名称
+            portNameMap = getPortNameMap(Str, "1.3.6.1.2.1.2.2.1.2");
+            if (portNameMap == null) {
+                return new Result(500, null, "Failed to retrieve port names.");
+            }
 
-            portInfo.put("portName", portName != null ? portName : "null");
-            portInfo.put("index", index);
-            portInfo.put("status", portStatus != null ? portStatus : "null");
+            // 获取端口状态
+            portStatusMap = getPortStatusMap(Str, "1.3.6.1.2.1.2.2.1.8");
+            if (portStatusMap == null) {
+                return new Result(500, null, "Failed to retrieve port statuses.");
+            }
 
-            mergedList.add(portInfo);
+            // 合并端口信息
+            for (String index : portNameMap.keySet()) {
+                Map<String, String> portInfo = new LinkedHashMap<>();
+                String portName = portNameMap.get(index);
+                String portStatus = portStatusMap.get(index);
+
+                portInfo.put("portName", portName != null ? portName : "null");
+                portInfo.put("index", index);
+                portInfo.put("status", portStatus != null ? portStatus : "null");
+
+                mergedList.add(portInfo);
+            }
+
+            return new Result(200, mergedList, ""); // 返回合并的结果
+        } catch (Exception e) {
+            // 处理其他异常
+            return new Result(500, null, "An unexpected error occurred: " + e.getMessage());
         }
-
-        return new Result(200,mergedList,""); // 返回合并的结果
     }
 
 
