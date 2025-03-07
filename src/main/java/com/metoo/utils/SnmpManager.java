@@ -1,6 +1,8 @@
 package com.metoo.utils;
 
+import com.alibaba.fastjson.JSONObject;
 import com.google.gson.GsonBuilder;
+import com.metoo.sdk.SNMPSDK;
 import org.snmp4j.*;
 import org.snmp4j.event.ResponseEvent;
 import org.snmp4j.mp.MPv3;
@@ -292,7 +294,7 @@ public class SnmpManager {
                     return new Result(200, value, "");
                 }
             }
-            return new Result(200, null, "Not found");
+            return new Result(200, "", "Not found");
         } catch (IOException e) {
             return new Result(500, null, e.getMessage());
         }
@@ -362,7 +364,7 @@ public class SnmpManager {
                     }
                 }
             }
-            return new Result(200, null, "Not found");
+            return new Result(200, "", "Not found");
         } catch (Exception e) {
             return new Result(500, null, e.getMessage());
         }
@@ -395,7 +397,7 @@ public class SnmpManager {
                     }
                 }
             }
-            return new Result(200, null, "Not found");
+            return new Result(200, "", "Not found");
         } catch (Exception e) {
             return new Result(500, null, e.getMessage());
         }
@@ -494,7 +496,7 @@ public class SnmpManager {
                     }
                 }
             }
-            return new Result(200, null, "Not found");
+            return new Result(200, "", "Not found");
         } catch (Exception e) {
             return new Result(500, null, e.getMessage());
         }
@@ -535,7 +537,7 @@ public class SnmpManager {
         try {
             List<VariableBinding> vbs = snmpWalk(new OID(oidStr));
             if (vbs.isEmpty()) {
-                return new Result(200, null, "No traffic data found");
+                return new Result(200, "", "No traffic data found");
             }
 
             Map<String, String> trafficData = new HashMap<>();
@@ -558,7 +560,7 @@ public class SnmpManager {
             String baseOidStr = oidStr.substring(0, oidStr.lastIndexOf('.')); // 去掉最后一个数字
             List<VariableBinding> vbs = snmpWalk(new OID(baseOidStr)); // 执行 SNMP 查询
             if (vbs.isEmpty()) {
-                return new Result(200, null, "No traffic data found"); // 如果没有数据，返回null
+                return new Result(200, "", "No traffic data found"); // 如果没有数据，返回null
             }
 
             // 获取传入 OID 的最后一个部分
@@ -574,17 +576,150 @@ public class SnmpManager {
                 }
             }
 
-            return new Result(200, null, "Traffic data not found for port: " + lastPart); // 如果没有找到匹配的 OID
+            return new Result(200,"", "Traffic data not found for port: " + lastPart); // 如果没有找到匹配的 OID
         } catch (IOException e) {
             return new Result(500, null, e.getMessage()); // 处理异常
         }
     }
+
+
+
+
+    public Map<String, String> getPortNameMap(String Str,String oidStr) {
+        Map<String, String> portNameMap = new LinkedHashMap<>();
+        try {
+            OID baseOid = new OID(oidStr);
+            List<VariableBinding> vbs = snmpWalk(baseOid);
+
+            for (VariableBinding vb : vbs) {
+                // 1. 提取完整的OID（保留原始格式）
+                OID oid = vb.getOid();
+                String portName = vb.getVariable().toString();
+                String oidStrRepresentation = oid.toString(); // 使用原始OID字符串表示
+                // 2. 如果需要，可以在此处处理 OID 格式（）
+                String[] oidParts = oidStrRepresentation.split("\\.");
+                String lastPart = oidParts[oidParts.length - 1]; // 取最后一位
+
+                if (lastPart != null) {
+                    portNameMap.put(lastPart, portName);
+                }
+            }
+
+            return portNameMap; // 返回提取的键值对
+        } catch (IOException e) {
+            return null;
+        }
+    }
+    public Map<String, String> getPortStatusMap(String Str,String oidStr) {
+        Map<String, String> portStatusMap = new LinkedHashMap<>();
+        try {
+            OID baseOid = new OID(oidStr);
+            List<VariableBinding> vbs = snmpWalk(baseOid);
+
+            for (VariableBinding vb : vbs) {
+                // 1. 提取完整的OID（保留原始格式）
+                OID oid = vb.getOid();
+                String portStatus = vb.getVariable().toString();
+                String oidStrRepresentation = oid.toString(); // 使用原始OID字符串表示
+                // 2. 如果需要，可以在此处处理 OID 格式（）
+                String[] oidParts = oidStrRepresentation.split("\\.");
+                String lastPart = oidParts[oidParts.length - 1]; // 取最后一位
+
+                if (lastPart != null) {
+                    portStatusMap.put(lastPart, portStatus);
+                }
+            }
+
+            return portStatusMap; // 返回提取的键值对
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    public Result getPortInfo(String Str, String oidStr) {
+        Map<String, String> portNameMap = getPortNameMap(Str, "1.3.6.1.2.1.2.2.1.2");
+        Map<String, String> portStatusMap = getPortStatusMap(Str, "1.3.6.1.2.1.2.2.1.8");
+        List<Map<String, String>> mergedList = new ArrayList<>();
+
+        for (String index : portNameMap.keySet()) {
+            Map<String, String> portInfo = new LinkedHashMap<>();
+            String portName = portNameMap.get(index);
+            String portStatus = portStatusMap.get(index);
+
+            portInfo.put("portName", portName != null ? portName : "null");
+            portInfo.put("index", index);
+            portInfo.put("status", portStatus != null ? portStatus : "null");
+
+            mergedList.add(portInfo);
+        }
+
+        return new Result(200,mergedList,""); // 返回合并的结果
+    }
+
 
     public static void main(String[] args) {
         try {
             // 初始化SNMP管理器（目标设备IP和社区字符串）
             //
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
+
+//            Object object = new SNMPSDK().operateV2C("global", "192.168.6.1", "public@123", "", "1.3.6.1.2.1.2.2.1.2", "all", "get_port_info");
+//            System.out.println(JSONObject.toJSON(object));
+
+
+            SnmpManager manager18 = new SnmpManager("192.168.6.1", "public@123");
+            Map<String, String> hostnameResult18 = manager18.getPortNameMap("", "1.3.6.1.2.1.2.2.1.2");
+            System.out.println("\n=== 测试1. 获取所有portName ===");
+            System.out.println(hostnameResult18);
+//
+//
+//            SnmpManager manager19 = new SnmpManager("192.168.6.1", "public@123");
+//            Map<String, String> hostnameResult19 = manager19.getPortStatusMap("", "1.3.6.1.2.1.2.2.1.8");
+//            System.out.println("\n=== 测试2. 获取所有portStatus ===");
+//            System.out.println(hostnameResult19);
+
+//            SnmpManager manager30 = new SnmpManager("192.168.6.1", "public@123");
+//            Result hostnameResult30 = manager30.getPortInfo("", "1.3.6.1.2.1.2.2.1.2");
+//            System.out.println("\n=== 测试2. 获取所有portInfo ===");
+//            System.out.println(gson.toJson(hostnameResult30));
+
+                        // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
+//            SnmpManager manager =  new SnmpManager(
+//                    "192.168.6.1",
+//                    "user_test",
+//                    SecurityLevel.NOAUTH_NOPRIV,
+//                    null, null, null, null
+//            );
+//            Result result = manager.getPortInfo("", "1.3.6.1.2.1.2.2.1.2");
+//            System.out.println("=== noAuthNoPriv 测试结果 ===");
+//            System.out.println(gson.toJson(result));
+            // --------------------------
+
+//            SnmpManager manager1 = new SnmpManager(
+//                    "192.168.6.1",
+//                    "user-test2",
+//                    SecurityLevel.AUTH_NOPRIV,
+//                    "MD5", "metoo8974500",
+//                    null, null
+//            );
+//            Result result1 = manager1.getPortInfo("", "1.3.6.1.2.1.2.2.1.2");
+//            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
+//            System.out.println(gson.toJson(result1));
+
+            // --------------------------
+
+//            SnmpManager manager2 = new SnmpManager(
+//                    "192.168.6.1",
+//                    "user_test3",
+//                    SecurityLevel.AUTH_PRIV,
+//                    "MD5", "metoo8974500",
+//                    "DES", "Metoo89745000"
+//            );
+//            Result result2 = manager2.getPortInfo("", "1.3.6.1.2.1.2.2.1.2");
+//            System.out.println("=== AUTH_PRIV 测试结果 ===");
+//            System.out.println(gson.toJson(result2));
+
+
 
 //            // --------------------------
 //            // 测试1. 获取设备主机名
@@ -630,14 +765,16 @@ public class SnmpManager {
 //            Result result2 = manager2.getHostname("", "1.3.6.1.2.1.1.5.0");
 //            System.out.println("=== AUTH_PRIV 测试结果 ===");
 //            System.out.println(gson.toJson(result2));
-//
+
+
 //            // 测试获取IPv4端口映射
-//            /*SnmpManager manager01 = new SnmpManager("192.168.6.1", "public@123");
+//            SnmpManager manager01 = new SnmpManager("192.168.6.1", "public@123");
 //            Result result01 = manager01.getIPv4PortMap("","1.3.6.1.2.1.4.20.1.2");
 //            System.out.println("=== IPv4地址-全部端口映射 ===");
-//            System.out.println(gson.toJson(result01));*/
-//
-//
+//            System.out.println(gson.toJson(result01));
+
+
+
 //            // --------------------------
 //            // 测试2. 获取IPv4端口信息
 //            //v2c
@@ -686,11 +823,13 @@ public class SnmpManager {
 //            System.out.println(gson.toJson(result9));
 //
 //
+
 //            // 测试获取IPv6全部端口映射
 //            SnmpManager manager02 = new SnmpManager("192.168.6.1", "public@123");
 //            Result IPv6Portresult02 = manager02.getIPv6PortMap("","1.3.6.1.2.1.4.32.1.5");
 //            System.out.println("=== IPv6地址-全部端口映射 ===");
 //            System.out.println(gson.toJson(IPv6Portresult02));
+
             //--------------------------
             // 测试3. 获取指定IPv6端口信息
             // OID: 1.3.6.1.2.1.4.32.1.5 (ipv6IfIndex)
@@ -702,48 +841,47 @@ public class SnmpManager {
 
 
 
-            SnmpManager manager89 = new SnmpManager("240e:380:2:42ba:5a48:496c:5a29:bc10", "read@public");
-            Result ipv6PortResult89 = manager89.getAbtIPv6Port("240E:380:2:3E6C:5A48:4944:EB29:BC10", "1.3.6.1.2.1.4.34.1.3.2");// 1.3.6.1.2.1.4.34.1.3.2
-            System.out.println("\n=== 测试abt 指定IPv6端口映射 ===");
-            System.out.println(gson.toJson(ipv6PortResult89));
+//            SnmpManager manager89 = new SnmpManager("240e:380:2:42ba:5a48:496c:5a29:bc10", "read@public");
+//            Result ipv6PortResult89 = manager89.getAbtIPv6Port("240E:380:2:3E6C:5A48:4944:EB29:BC10", "1.3.6.1.2.1.4.34.1.3.2");// 1.3.6.1.2.1.4.34.1.3.2
+//            System.out.println("\n=== 测试abt 指定IPv6端口映射 ===");
+//            System.out.println(gson.toJson(ipv6PortResult89));
 
-/*
 
             // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
-            SnmpManager manager17 =  new SnmpManager(
-                    "192.168.6.1",
-                    "user_test",
-                    SecurityLevel.NOAUTH_NOPRIV,
-                    null, null, null, null
-            );
-            Result result17 = manager17.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
-            System.out.println("=== noAuthNoPriv 测试结果 ===");
-            System.out.println(gson.toJson(result17));
-            // --------------------------
-
-            SnmpManager manager18 = new SnmpManager(
-                    "192.168.6.1",
-                    "user-test2",
-                    SecurityLevel.AUTH_NOPRIV,
-                    "MD5", "metoo8974500",
-                    null, null
-            );
-            Result result18 = manager18.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
-            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
-            System.out.println(gson.toJson(result18));
-
-            // --------------------------
-
-            SnmpManager manager19 = new SnmpManager(
-                    "192.168.6.1",
-                    "user_test3",
-                    SecurityLevel.AUTH_PRIV,
-                    "MD5", "metoo8974500",
-                    "DES", "Metoo89745000"
-            );
-            Result result19 = manager19.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
-            System.out.println("=== AUTH_PRIV 测试结果 ===");
-            System.out.println(gson.toJson(result19));
+//            SnmpManager manager17 =  new SnmpManager(
+//                    "192.168.6.1",
+//                    "user_test",
+//                    SecurityLevel.NOAUTH_NOPRIV,
+//                    null, null, null, null
+//            );
+//            Result result17 = manager17.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
+//            System.out.println("=== noAuthNoPriv 测试结果 ===");
+//            System.out.println(gson.toJson(result17));
+//            // --------------------------
+//
+//            SnmpManager manager18 = new SnmpManager(
+//                    "192.168.6.1",
+//                    "user-test2",
+//                    SecurityLevel.AUTH_NOPRIV,
+//                    "MD5", "metoo8974500",
+//                    null, null
+//            );
+//            Result result18 = manager18.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
+//            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
+//            System.out.println(gson.toJson(result18));
+//
+//            // --------------------------
+//
+//            SnmpManager manager19 = new SnmpManager(
+//                    "192.168.6.1",
+//                    "user_test3",
+//                    SecurityLevel.AUTH_PRIV,
+//                    "MD5", "metoo8974500",
+//                    "DES", "Metoo89745000"
+//            );
+//            Result result19 = manager19.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
+//            System.out.println("=== AUTH_PRIV 测试结果 ===");
+//            System.out.println(gson.toJson(result19));
 
 
 
@@ -762,52 +900,52 @@ public class SnmpManager {
             // 测试5. 获取全部流量统计
             // OID: 1.3.6.1.2.1.31.1.1.1.10 (ifHCInOctets)
             // --------------------------
-            SnmpManager manager03 = new SnmpManager("192.168.6.1", "public@123");
-            Result trafficResult03 = manager03.getTraffic("","1.3.6.1.2.1.2.2.1.10");
-            System.out.println("\n=== 测试5. 全部流量统计 ===");
-            System.out.println(gson.toJson(trafficResult03));
+//            SnmpManager manager03 = new SnmpManager("192.168.6.1", "public@123");
+//            Result trafficResult03 = manager03.getTraffic("","1.3.6.1.2.1.2.2.1.10");
+//            System.out.println("\n=== 测试5. 全部流量统计 ===");
+//            System.out.println(gson.toJson(trafficResult03));
 
 
-            SnmpManager manager21 = new SnmpManager("192.168.6.1", "public@123");
-            Result trafficByOidResult = manager21.getTrafficByPort("","1.3.6.1.2.1.2.2.1.10.195");
-            System.out.println("\n=== 测试5. 指定流量统计 ===");
-            System.out.println(gson.toJson(trafficByOidResult));
+//            SnmpManager manager21 = new SnmpManager("192.168.6.1", "public@123");
+//            Result trafficByOidResult = manager21.getTrafficByPort("","1.3.6.1.2.1.2.2.1.10.195");
+//            System.out.println("\n=== 测试5. 指定流量统计 ===");
+//            System.out.println(gson.toJson(trafficByOidResult));
 
             // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
-            SnmpManager manager27 =  new SnmpManager(
-                    "192.168.6.1",
-                    "user_test",
-                    SecurityLevel.NOAUTH_NOPRIV,
-                    null, null, null, null
-            );
-            Result result27 = manager27.getTrafficByPort("2400:3030:aa12:1978::1", "1.3.6.1.2.1.2.2.1.10.195");
-            System.out.println("=== noAuthNoPriv 测试结果 ===");
-            System.out.println(gson.toJson(result27));
-            // --------------------------
-
-            SnmpManager manager28 = new SnmpManager(
-                    "192.168.6.1",
-                    "user-test2",
-                    SecurityLevel.AUTH_NOPRIV,
-                    "MD5", "metoo8974500",
-                    null, null
-            );
-            Result result28 = manager28.getTrafficByPort("2400:3030:aa12:1978::1", "1.3.6.1.2.1.2.2.1.10.195");
-            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
-            System.out.println(gson.toJson(result28));
-
-            // --------------------------
-
-            SnmpManager manager29 = new SnmpManager(
-                    "192.168.6.1",
-                    "user_test3",
-                    SecurityLevel.AUTH_PRIV,
-                    "MD5", "metoo8974500",
-                    "DES", "Metoo89745000"
-            );
-            Result result29 = manager29.getTrafficByPort("2400:3030:aa12:1978::1", "1.3.6.1.2.1.2.2.1.10.195");
-            System.out.println("=== AUTH_PRIV 测试结果 ===");
-            System.out.println(gson.toJson(result29));*/
+//            SnmpManager manager27 =  new SnmpManager(
+//                    "192.168.6.1",
+//                    "user_test",
+//                    SecurityLevel.NOAUTH_NOPRIV,
+//                    null, null, null, null
+//            );
+//            Result result27 = manager27.getTrafficByPort("2400:3030:aa12:1978::1", "1.3.6.1.2.1.2.2.1.10.195");
+//            System.out.println("=== noAuthNoPriv 测试结果 ===");
+//            System.out.println(gson.toJson(result27));
+//            // --------------------------
+//
+//            SnmpManager manager28 = new SnmpManager(
+//                    "192.168.6.1",
+//                    "user-test2",
+//                    SecurityLevel.AUTH_NOPRIV,
+//                    "MD5", "metoo8974500",
+//                    null, null
+//            );
+//            Result result28 = manager28.getTrafficByPort("2400:3030:aa12:1978::1", "1.3.6.1.2.1.2.2.1.10.195");
+//            System.out.println("=== AUTH_NOPRIV 测试结果 ===");
+//            System.out.println(gson.toJson(result28));
+//
+//            // --------------------------
+//
+//            SnmpManager manager29 = new SnmpManager(
+//                    "192.168.6.1",
+//                    "user_test3",
+//                    SecurityLevel.AUTH_PRIV,
+//                    "MD5", "metoo8974500",
+//                    "DES", "Metoo89745000"
+//            );
+//            Result result29 = manager29.getTrafficByPort("2400:3030:aa12:1978::1", "1.3.6.1.2.1.2.2.1.10.195");
+//            System.out.println("=== AUTH_PRIV 测试结果 ===");
+//            System.out.println(gson.toJson(result29));
 
 
         } catch (IOException e) {
