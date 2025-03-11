@@ -418,8 +418,6 @@ public class SnmpManager {
                     // 转换网段和匹配逻辑
                     String[] last16Parts = Arrays.copyOfRange(oidParts, oidParts.length - 16, oidParts.length);
                     String iPv6Address = convertOidToIPv6Address(last16Parts);
-                    System.out.println(iPv6Address);
-
                     // 匹配逻辑
                     if (iPv6Address.equalsIgnoreCase(normalizedIPv6)) {
                         return new Result(200, key, "");
