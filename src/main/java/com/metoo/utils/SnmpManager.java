@@ -391,7 +391,6 @@ public class SnmpManager {
                     // 转换网段和匹配逻辑（保持不变）
                     String[] last16Parts = Arrays.copyOfRange(oidParts, oidParts.length - 16, oidParts.length);
                     String iPv6Address = convertOidToIPv6Address(last16Parts);
-                    System.out.println(iPv6Address);
                     if (iPv6Address.toUpperCase().equalsIgnoreCase(normalizedIPv6)) {
                         return new Result(200, key, "");
                     }
@@ -399,7 +398,37 @@ public class SnmpManager {
             }
             return new Result(200, "", "Not found");
         } catch (Exception e) {
-            return new Result(500, null, e.getMessage());
+            return new Result(500, "", e.getMessage());
+        }
+    }
+    public Result getInspurIPv6Port(String ipv6, String oidStr) {
+        try {
+            String normalizedIPv6 = expandIPv6(ipv6);
+            List<VariableBinding> vbs = snmpWalk(new OID(oidStr));
+            // 计算基础 OID 的节点数
+            int baseOidLength = new OID(oidStr).size();
+
+            for (VariableBinding vb : vbs) {
+                String fullOid = vb.getOid().toString();
+                String key = vb.getVariable().toString();
+                String[] oidParts = fullOid.split("\\.");
+
+                // 检查 oidParts 长度是否满足要求
+                if (oidParts.length > baseOidLength + 16) {
+                    // 转换网段和匹配逻辑
+                    String[] last16Parts = Arrays.copyOfRange(oidParts, oidParts.length - 16, oidParts.length);
+                    String iPv6Address = convertOidToIPv6Address(last16Parts);
+                    System.out.println(iPv6Address);
+
+                    // 匹配逻辑
+                    if (iPv6Address.equalsIgnoreCase(normalizedIPv6)) {
+                        return new Result(200, key, "");
+                    }
+                }
+            }
+            return new Result(200, "", "Not found");
+        } catch (Exception e) {
+            return new Result(500, "", e.getMessage());
         }
     }
 
@@ -681,14 +710,19 @@ public class SnmpManager {
             //
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
+//            Object object1 = new SNMPSDK().operateV2C("fw", "192.168.6.1", "public@123", "", "1.3.6.1.2.1.1.5.0", "h3c", "test");
+//            System.out.println(JSONObject.toJSON(object1));
+//
 //            Object object = new SNMPSDK().operateV2C("global", "192.168.6.1", "public@123", "", "1.3.6.1.2.1.2.2.1.2", "all", "get_port_info");
 //            System.out.println(JSONObject.toJSON(object));
 
+//            Object object = new SNMPSDK().operateV2C("fw", "192.168.6.1", "public@123", "192.168.4.2", "1.3.6.1.2.1.4.20.1.2", "stone", "get_ipv4_port");
+//            System.out.println(JSONObject.toJSON(object));
 
-            SnmpManager manager18 = new SnmpManager("192.168.6.1", "public@123");
-            Map<String, String> hostnameResult18 = manager18.getPortNameMap("", "1.3.6.1.2.1.2.2.1.2");
-            System.out.println("\n=== 测试1. 获取所有portName ===");
-            System.out.println(hostnameResult18);
+//            SnmpManager manager18 = new SnmpManager("192.168.6.1", "public@123");
+//            Map<String, String> hostnameResult18 = manager18.getPortNameMap("", "1.3.6.1.2.1.2.2.1.2");
+//            System.out.println("\n=== 测试1. 获取所有portName ===");
+//            System.out.println(hostnameResult18);
 //
 //
 //            SnmpManager manager19 = new SnmpManager("192.168.6.1", "public@123");
@@ -859,10 +893,16 @@ public class SnmpManager {
 
 
 
-//            SnmpManager manager89 = new SnmpManager("240e:380:2:42ba:5a48:496c:5a29:bc10", "read@public");
+            SnmpManager manager89 = new SnmpManager("117.40.252.175", "gaslj");
+            Result ipv6PortResult89 = manager89.getInspurIPv6Port("240e:670:7200::7", "1.3.6.1.2.1.4.34.1.3");// 1.3.6.1.2.1.4.34.1.3.2
+            System.out.println("\n=== 测试abt 指定IPv6端口映射 ===");
+            System.out.println(gson.toJson(ipv6PortResult89));
+
+//                        SnmpManager manager89 = new SnmpManager("240e:380:2:42ba:5a48:496c:5a29:bc10", "read@public");
 //            Result ipv6PortResult89 = manager89.getAbtIPv6Port("240E:380:2:3E6C:5A48:4944:EB29:BC10", "1.3.6.1.2.1.4.34.1.3.2");// 1.3.6.1.2.1.4.34.1.3.2
 //            System.out.println("\n=== 测试abt 指定IPv6端口映射 ===");
 //            System.out.println(gson.toJson(ipv6PortResult89));
+
 
 
             // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
