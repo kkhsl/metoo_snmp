@@ -204,7 +204,16 @@ public class SnmpManager {
         }
         pdu.add(new VariableBinding(oid));
         pdu.setType(PDU.GET);
-        ResponseEvent responseEvent = snmp.send(pdu, createTarget());
+        ResponseEvent responseEvent = null;
+        try {
+            responseEvent = snmp.send(pdu, createTarget());
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (snmp != null) {
+                snmp.close();
+            }
+        }
         return responseEvent;
     }
 
