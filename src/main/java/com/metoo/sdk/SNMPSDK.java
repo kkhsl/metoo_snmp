@@ -57,14 +57,22 @@ public class SNMPSDK {
             String command
     ) throws SNMPException {
         validateParams(host, community, oid, vendor, command);
-
+        SnmpManager manager = null;
         try {
             String methodName = getMethodName(type, vendor, command);
-            SnmpManager manager = new SnmpManager(host, community);
+            manager = new SnmpManager(host, community);
             return invokeSnmpMethod(manager, methodName, ip, oid);
         } catch (Exception e) {
             handleException(e);
-            return null; // 实际应抛出异常
+            return null;
+        } finally {
+            if (manager != null) {
+                try {
+                    manager.close();
+                } catch (IOException e) {
+                    return null;
+                }
+            }
         }
     }
 
@@ -83,16 +91,24 @@ public class SNMPSDK {
             String privPassword
     ) throws SNMPException {
         validateParams(host, oid, vendor, command);
-
+        SnmpManager manager = null;
         try {
             String methodName = getMethodName(type, vendor, command);
-            SnmpManager manager = new SnmpManager(
+            manager = new SnmpManager(
                     host, securityName, securityLevel,
                     authProtocol, authPassword, privProtocol, privPassword);
             return invokeSnmpMethod(manager, methodName, ip, oid);
         } catch (Exception e) {
             handleException(e);
             return null;
+        } finally {
+            if (manager != null) {
+                try {
+                    manager.close();
+                } catch (IOException e) {
+                    return null;
+                }
+            }
         }
     }
 
