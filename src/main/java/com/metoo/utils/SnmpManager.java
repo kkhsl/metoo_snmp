@@ -12,6 +12,7 @@ import org.snmp4j.smi.*;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
 import com.google.gson.Gson;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.*;
 
 public class SnmpManager {
@@ -100,7 +101,9 @@ public class SnmpManager {
     }
 
     private void initialize() throws IOException {
-        TransportMapping transport = new DefaultUdpTransportMapping();
+        TransportMapping transport = new DefaultUdpTransportMapping(
+                new UdpAddress(InetAddress.getByName("::0"), 0)
+        );
         snmp = new Snmp(transport);
 
         if (version == SnmpConstants.version3) {
@@ -890,17 +893,20 @@ public class SnmpManager {
             // 测试3. 获取指定IPv6端口信息
             // OID: 1.3.6.1.2.1.4.32.1.5 (ipv6IfIndex)
             // --------------------------
-//            SnmpManager manager16 = new SnmpManager("192.168.6.1", "public@123");
-//            Result ipv6PortResult16 = manager16.getIPv6Port("2400:3030:aa12:1978::1", "1.3.6.1.2.1.4.32.1.5");
-//            System.out.println("\n=== 测试3. 指定IPv6端口映射 ===");
-//            System.out.println(gson.toJson(ipv6PortResult16));
+            SnmpManager manager16 = new SnmpManager("fe80::5a48:49ff:fe2f:f83e", "public@123");
+            Result ipv6PortResult16 = manager16.getIPv6Port("fe80::5a48:49ff:fe2f:f83e", "1.3.6.1.2.1.4.32.1.5");
+            manager16.close(); // 确保关闭
+            System.out.println("\n=== 测试3. 指定IPv6端口映射 ===");
+            System.out.println(gson.toJson(ipv6PortResult16));
 
 
 
-            SnmpManager manager89 = new SnmpManager("117.40.252.175", "gaslj");
-            Result ipv6PortResult89 = manager89.getInspurIPv6Port("240e:670:7200::7", "1.3.6.1.2.1.4.34.1.3");// 1.3.6.1.2.1.4.34.1.3.2
-            System.out.println("\n=== 测试abt 指定IPv6端口映射 ===");
-            System.out.println(gson.toJson(ipv6PortResult89));
+
+
+//            SnmpManager manager89 = new SnmpManager("117.40.252.175", "gaslj");
+//            Result ipv6PortResult89 = manager89.getInspurIPv6Port("240e:670:7200::7", "1.3.6.1.2.1.4.34.1.3");// 1.3.6.1.2.1.4.34.1.3.2
+//            System.out.println("\n=== 测试abt 指定IPv6端口映射 ===");
+//            System.out.println(gson.toJson(ipv6PortResult89));
 
 //                        SnmpManager manager89 = new SnmpManager("240e:380:2:42ba:5a48:496c:5a29:bc10", "read@public");
 //            Result ipv6PortResult89 = manager89.getAbtIPv6Port("240E:380:2:3E6C:5A48:4944:EB29:BC10", "1.3.6.1.2.1.4.34.1.3.2");// 1.3.6.1.2.1.4.34.1.3.2
