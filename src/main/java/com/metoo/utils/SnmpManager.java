@@ -723,8 +723,26 @@ public class SnmpManager {
 //            Object object = new SNMPSDK().operateV2C("global", "192.168.6.1", "public@123", "", "1.3.6.1.2.1.2.2.1.2", "all", "get_port_info");
 //            System.out.println(JSONObject.toJSON(object));
 
-//            Object object = new SNMPSDK().operateV2C("fw", "192.168.6.1", "public@123", "192.168.4.2", "1.3.6.1.2.1.4.20.1.2", "stone", "get_ipv4_port");
-//            System.out.println(JSONObject.toJSON(object));
+
+            //v3
+            //SecurityLevel.NOAUTH_NOPRIV   1
+            Object object = new SNMPSDK().operateV3("global", "192.168.6.1", "", "1.3.6.1.2.1.4.20.1.2",
+                    "all", "get_port_info", "user_test",SecurityLevel.NOAUTH_NOPRIV,
+                    null,null,null,null);
+            System.out.println(JSONObject.toJSON(object));
+
+            //SecurityLevel.AUTH_NOPRIV    2
+            Object object2 = new SNMPSDK().operateV3("global", "192.168.6.1", "", "1.3.6.1.2.1.4.20.1.2",
+                    "all", "get_port_info", "user-test2",SecurityLevel.AUTH_NOPRIV,
+                    "MD5","metoo8974500",null,null);
+            System.out.println(JSONObject.toJSON(object2));
+
+            //SecurityLevel.AUTH_PRIV   3
+            Object object3 = new SNMPSDK().operateV3("global", "192.168.6.1", "", "1.3.6.1.2.1.4.20.1.2",
+                    "all", "get_port_info", "user-test3",SecurityLevel.AUTH_PRIV,
+                    "MD5","metoo8974500","DES","Metoo89745000");
+            System.out.println(JSONObject.toJSON(object3));
+
 
 //            SnmpManager manager18 = new SnmpManager("192.168.6.1", "public@123");
 //            Map<String, String> hostnameResult18 = manager18.getPortNameMap("", "1.3.6.1.2.1.2.2.1.2");
@@ -790,15 +808,15 @@ public class SnmpManager {
 //            System.out.println(gson.toJson(hostnameResult));
 //
 //            // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
-//            SnmpManager manager =  new SnmpManager(
-//                    "192.168.6.1",
-//                    "user_test",
-//                    SecurityLevel.NOAUTH_NOPRIV,
-//                    null, null, null, null
-//            );
-//            Result result = manager.getHostname("", "1.3.6.1.2.1.1.5.0");
-//            System.out.println("=== noAuthNoPriv 测试结果 ===");
-//            System.out.println(gson.toJson(result));
+            SnmpManager manager =  new SnmpManager(
+                    "192.168.6.1",
+                    "user_test",
+                    SecurityLevel.NOAUTH_NOPRIV,
+                    null, null, null, null
+            );
+            Result result = manager.getHostname("", "1.3.6.1.2.1.1.5.0");
+            System.out.println("=== noAuthNoPriv 测试结果 ===");
+            System.out.println(gson.toJson(result));
 //            // --------------------------
 //
 //            SnmpManager manager1 = new SnmpManager(
