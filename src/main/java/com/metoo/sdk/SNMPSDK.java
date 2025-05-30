@@ -49,6 +49,7 @@ public class SNMPSDK {
 
     public Object operateV2C(
             String type,
+            int port,
             String host,
             String community,
             String ip,
@@ -60,7 +61,7 @@ public class SNMPSDK {
         SnmpManager manager = null;
         try {
             String methodName = getMethodName(type, vendor, command);
-            manager = new SnmpManager(host, community);
+            manager = new SnmpManager(host,port, community);
             return invokeSnmpMethod(manager, methodName, ip, oid);
         } catch (Exception e) {
             handleException(e);
@@ -79,6 +80,7 @@ public class SNMPSDK {
     public Object operateV3(
             String type,
             String host,
+            int port,
             String ip,
             String oid,
             String vendor,
@@ -95,7 +97,7 @@ public class SNMPSDK {
         try {
             String methodName = getMethodName(type, vendor, command);
             manager = new SnmpManager(
-                    host, securityName, securityLevel,
+                    host,port, securityName, securityLevel,
                     authProtocol, authPassword, privProtocol, privPassword);
             return invokeSnmpMethod(manager, methodName, ip, oid);
         } catch (Exception e) {

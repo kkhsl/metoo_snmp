@@ -42,19 +42,19 @@ public class SnmpManager {
     }
 
     // 构造函数重载
-    public SnmpManager(String host, String community) throws IOException {
-        this(host, SnmpConstants.version2c, community, null,
+    public SnmpManager(String host,int port, String community) throws IOException {
+        this(host,port, SnmpConstants.version2c, community, null,
                 SecurityLevel.NOAUTH_NOPRIV, null, null, null, null);
     }
 
-    public SnmpManager(String host, String securityName, int securityLevel,
+    public SnmpManager(String host,int port, String securityName, int securityLevel,
                        String authProtocol, String authPassword,
                        String privProtocol, String privPassword) throws IOException {
-        this(host, SnmpConstants.version3, null, securityName,
+        this(host,port, SnmpConstants.version3, null, securityName,
                 securityLevel, authProtocol, authPassword, privProtocol, privPassword);
     }
 
-    private SnmpManager(String host, int version, String community, String securityName,
+    private SnmpManager(String host,int port, int version, String community, String securityName,
                         int securityLevel, String authProtocol, String authPassword,
                         String privProtocol, String privPassword) throws IOException {
         String privPassword1;
@@ -62,7 +62,7 @@ public class SnmpManager {
         String authPassword1;
         String authProtocol1;
         this.host = host;
-        this.port = 161;
+        this.port = port;
         this.version = version;
         this.community = community;
         this.securityName = securityName;
@@ -717,31 +717,43 @@ public class SnmpManager {
             //
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-//            Object object1 = new SNMPSDK().operateV2C("fw", "192.168.6.1", "public@123", "", "1.3.6.1.2.1.1.5.0", "h3c", "test");
-//            System.out.println(JSONObject.toJSON(object1));
-//
+            Object object1 = new SNMPSDK().operateV2C("fw", 16100,"192.168.60.91", "public", "", " 1.3.6.1.2.1.1.1.0", "h3c", "test");
+            System.out.println(JSONObject.toJSON(object1));
+
 //            Object object = new SNMPSDK().operateV2C("global", "192.168.6.1", "public@123", "", "1.3.6.1.2.1.2.2.1.2", "all", "get_port_info");
 //            System.out.println(JSONObject.toJSON(object));
 
 
             //v3
             //SecurityLevel.NOAUTH_NOPRIV   1
-            Object object = new SNMPSDK().operateV3("global", "192.168.6.1", "", "1.3.6.1.2.1.4.20.1.2",
-                    "all", "get_port_info", "user_test",SecurityLevel.NOAUTH_NOPRIV,
-                    null,null,null,null);
-            System.out.println(JSONObject.toJSON(object));
-
-            //SecurityLevel.AUTH_NOPRIV    2
-            Object object2 = new SNMPSDK().operateV3("global", "192.168.6.1", "", "1.3.6.1.2.1.4.20.1.2",
-                    "all", "get_port_info", "user-test2",SecurityLevel.AUTH_NOPRIV,
-                    "MD5","metoo8974500",null,null);
-            System.out.println(JSONObject.toJSON(object2));
-
-            //SecurityLevel.AUTH_PRIV   3
-            Object object3 = new SNMPSDK().operateV3("global", "192.168.6.1", "", "1.3.6.1.2.1.4.20.1.2",
-                    "all", "get_port_info", "user-test3",SecurityLevel.AUTH_PRIV,
-                    "MD5","metoo8974500","DES","Metoo89745000");
-            System.out.println(JSONObject.toJSON(object3));
+//            Object object = new SNMPSDK().operateV3("global", "192.168.6.1", 161,"", "1.3.6.1.2.1.4.20.1.2",
+//                    "all", "get_port_info", "user_test",SecurityLevel.NOAUTH_NOPRIV,
+//                    null,null,null,null);
+//            System.out.println(JSONObject.toJSON(object));
+//
+//            //SecurityLevel.AUTH_NOPRIV    2
+//            Object object2 = new SNMPSDK().operateV3("global", "192.168.6.1",161,"", "1.3.6.1.2.1.4.20.1.2",
+//                    "all", "get_port_info", "user-test2",SecurityLevel.AUTH_NOPRIV,
+//                    "MD5","metoo8974500",null,null);
+//            System.out.println(JSONObject.toJSON(object2));
+//
+//            //SecurityLevel.AUTH_PRIV   3
+//            Object object3 = new SNMPSDK().operateV3("global", "192.168.6.1", 161,"", "1.3.6.1.2.1.4.20.1.2",
+//                    "all", "get_port_info", "user_test3",SecurityLevel.AUTH_PRIV,
+//                    "MD5","metoo8974500","DES","Metoo89745000");
+//            System.out.println(JSONObject.toJSON(object3));
+//
+//            SnmpManager manager2 = new SnmpManager(
+//                    "192.168.6.1",
+//                    161,
+//                    "user_test3",
+//                    SecurityLevel.AUTH_PRIV,
+//                    "MD5", "metoo8974500",
+//                    "DES", "Metoo89745000"
+//            );
+//            Result result2 = manager2.getPortInfo("", "1.3.6.1.2.1.4.20.1.2");
+//            System.out.println("=== AUTH_PRIV 测试结果 ===");
+//            System.out.println(gson.toJson(result2));
 
 
 //            SnmpManager manager18 = new SnmpManager("192.168.6.1", "public@123");
@@ -808,15 +820,15 @@ public class SnmpManager {
 //            System.out.println(gson.toJson(hostnameResult));
 //
 //            // snmpwalk -v 3 -u user_test -l noAuthNoPriv 192.168.6.1
-            SnmpManager manager =  new SnmpManager(
-                    "192.168.6.1",
-                    "user_test",
-                    SecurityLevel.NOAUTH_NOPRIV,
-                    null, null, null, null
-            );
-            Result result = manager.getHostname("", "1.3.6.1.2.1.1.5.0");
-            System.out.println("=== noAuthNoPriv 测试结果 ===");
-            System.out.println(gson.toJson(result));
+//            SnmpManager manager =  new SnmpManager(
+//                    "192.168.6.1",
+//                    "user_test",
+//                    SecurityLevel.NOAUTH_NOPRIV,
+//                    null, null, null, null
+//            );
+//            Result result = manager.getHostname("", "1.3.6.1.2.1.1.5.0");
+//            System.out.println("=== noAuthNoPriv 测试结果 ===");
+//            System.out.println(gson.toJson(result));
 //            // --------------------------
 //
 //            SnmpManager manager1 = new SnmpManager(
@@ -911,11 +923,11 @@ public class SnmpManager {
             // 测试3. 获取指定IPv6端口信息
             // OID: 1.3.6.1.2.1.4.32.1.5 (ipv6IfIndex)
             // --------------------------
-            SnmpManager manager16 = new SnmpManager("fe80::5a48:49ff:fe2f:f83e", "public@123");
-            Result ipv6PortResult16 = manager16.getIPv6Port("fe80::5a48:49ff:fe2f:f83e", "1.3.6.1.2.1.4.32.1.5");
-            manager16.close(); // 确保关闭
-            System.out.println("\n=== 测试3. 指定IPv6端口映射 ===");
-            System.out.println(gson.toJson(ipv6PortResult16));
+//            SnmpManager manager16 = new SnmpManager("fe80::5a48:49ff:fe2f:f83e", "public@123");
+//            Result ipv6PortResult16 = manager16.getIPv6Port("fe80::5a48:49ff:fe2f:f83e", "1.3.6.1.2.1.4.32.1.5");
+//            manager16.close(); // 确保关闭
+//            System.out.println("\n=== 测试3. 指定IPv6端口映射 ===");
+//            System.out.println(gson.toJson(ipv6PortResult16));
 
 
 
@@ -1034,9 +1046,6 @@ public class SnmpManager {
 //            System.out.println(gson.toJson(result29));
 
 
-        } catch (IOException e) {
-            System.err.println("【严重错误】SNMP连接失败:");
-            e.printStackTrace();
         } catch (Exception e) {
             System.err.println("【运行时错误】:");
             e.printStackTrace();

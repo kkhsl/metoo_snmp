@@ -1,3 +1,4 @@
+/*
 package com.metoo.controller;
 
 import com.alibaba.fastjson.JSONObject;
@@ -20,9 +21,11 @@ public class SNMPController {
 
     private Properties snmpConfig;
 
-    /**
+    */
+/**
      * 初始化加载配置文件
-     */
+     *//*
+
     @PostConstruct
     public void init() {
         try {
@@ -41,13 +44,15 @@ public class SNMPController {
         }
     }
 
-    /**
+    */
+/**
      * 根据厂商和指令获取对应方法名
      * @param type 设备类型
      * @param vendor 设备厂商
      * @param command 操作指令
      * @return 方法名，未找到返回null
-     */
+     *//*
+
     public String getMethodName(String type,String vendor, String command) {
         String key = String.format("%s.%s.%s",type,vendor,command);
         String methodConfig = snmpConfig.getProperty(key);
@@ -57,7 +62,8 @@ public class SNMPController {
         return null;
     }
 
-    /**
+    */
+/**
      * SNMP V2C操作统一入口
      * @param host 目标主机
      * @param community SNMP社区名
@@ -66,7 +72,8 @@ public class SNMPController {
      * @param vendor 设备厂商
      * @param command 操作指令
      * @return 标准化JSON响应
-     */
+     *//*
+
     @GetMapping("/operateV2C")
     public ResponseEntity<?> snmpV2COperation(
             @RequestParam String type,
@@ -112,7 +119,8 @@ public class SNMPController {
         }
     }
 
-    /**
+    */
+/**
      * SNMP V3操作统一入口
      * @param host 目标主机
      * @param ip 目标IP（可选）
@@ -120,7 +128,8 @@ public class SNMPController {
      * @param vendor 设备厂商
      * @param command 操作指令
      * @return 标准化JSON响应
-     */
+     *//*
+
     @GetMapping("/operateV3")
     public ResponseEntity<?> snmpOperation(
             @RequestParam String host,
@@ -172,4 +181,4 @@ public class SNMPController {
     }
 
 
-}
+}*/
